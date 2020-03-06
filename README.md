@@ -4,7 +4,7 @@ WWW2020-One2Multi Graph Autoencoder for Multi-view Graph Clustering
 
 The source code is based on [ARGA](https://github.com/Ruiqi-Hu/ARGA)
 
-paper: 
+paper: http://www.shichuan.org/doc/83.pdf
 
 # Contact
 Shaohua Fan, Email:fanshaohua92@163.com

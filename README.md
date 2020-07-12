@@ -9,6 +9,7 @@ paper: http://www.shichuan.org/doc/83.pdf
 # Contact
 Shaohua Fan, Email:fanshaohua92@163.com
 
+
 # DBLP-Data
 Preprocessed DBLP can be found in: https://pan.baidu.com/s/1Qr2e97MofXsBhUvQqgJqDg 提取码：6b3h
 
@@ -17,6 +18,8 @@ pip -r requirements.txt
 # Running the model
 python O2MAC.py
 
+# Note
+Set input_view (Informative view) in settings.py as 0 for ACM and 1 for DBLP.
 
 # Reference
 @inproceedings{

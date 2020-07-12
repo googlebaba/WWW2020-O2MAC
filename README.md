@@ -10,8 +10,10 @@ paper: http://www.shichuan.org/doc/83.pdf
 Shaohua Fan, Email:fanshaohua92@163.com
 
 
-# DBLP-Data
+# Preprocessed-Data
 Preprocessed DBLP can be found in: https://pan.baidu.com/s/1Qr2e97MofXsBhUvQqgJqDg 提取码：6b3h
+Preprocessed IMDB can be found in: 链接:https://pan.baidu.com/s/199LoAr5WmL3wgx66j-qwaw 密码:qkec
+
 
 # Requirements
 pip -r requirements.txt

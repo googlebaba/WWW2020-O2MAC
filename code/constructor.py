@@ -79,7 +79,7 @@ def format_data(data_name):
 
 def get_optimizer(model_str, model, numView, placeholders, num_nodes):
     if model_str == 'arga_ae':
-        opt = OptimizerAE(model=model, preds_fuze=model.reconstructions_fuze, preds=model.reconstructions,
+        opt = OptimizerAE(model=model, preds_fuze=model.reconstructions_fuze,
                           labels=placeholders['adjs_orig'],
                           p = placeholders['p'],
                           numView=numView,

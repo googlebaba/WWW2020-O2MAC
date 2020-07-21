@@ -164,7 +164,7 @@ class InnerProductDecoderSingle(Layer):
         return outputs
 
 
-class InnerProductDecoder_MLP(Layer):
+class MLP(Layer):
     """Decoder model layer for link prediction."""
     def __init__(self, input_dim, v = 0, dropout=0., act=tf.nn.sigmoid, **kwargs):
         super(InnerProductDecoder_MLP, self).__init__(**kwargs)
@@ -175,17 +175,7 @@ class InnerProductDecoder_MLP(Layer):
         self.dropout = dropout
         self.act = act
 
-    def _call(self, inputs):
-        '''
-        inputs = tf.nn.dropout(inputs, 1-self.dropout)
-        #v_inputs = tf.layers.dense(inputs, 32, activation = tf.nn.relu)
-        x = tf.transpose(inputs)
-        tmp = tf.matmul(inputs, self.vars['view_weights'])
-        x = tf.matmul(tmp, x)
-        x = tf.reshape(x, [-1])
-        outputs = self.act(x)
-        '''
-        
+    def _call(self, inputs):        
         inputs = tf.nn.dropout(inputs, 1-self.dropout)
         x = tf.transpose(inputs)
         tmp = tf.matmul(inputs, self.vars['view_weights'])+ self.vars['view_bais']
@@ -194,148 +184,7 @@ class InnerProductDecoder_MLP(Layer):
         outputs = self.act(x)
         
         return outputs
-class FuzeMultiEmbedding(Layer):
-    """Fuze Multi-view encoder to a share embedding."""
-    def __init__(self, fuze_func='mean',input_dim=32, dropout=0., **kwargs):
-        super(FuzeMultiEmbedding, self).__init__(**kwargs)
-        self.dropout = dropout
-        self.fuze_func = fuze_func
-        self.input_dim = input_dim
-
-
-    def _call(self, inputs):
-        #inputs = tf.nn.dropout(inputs, 1-self.dropout)
-        print('inputs', inputs)
-        self.W = tf.constant(0)
-        if self.fuze_func == 'nothing':
-            outputs = inputs[0]
-        elif self.fuze_func == 'sum':
-            outputs = tf.constant(0.9) * inputs[0] + tf.constant(0.1) * inputs[1]
-        elif self.fuze_func == 'mean':
-            outputs = tf.reduce_mean(inputs, axis=0)
-        elif self.fuze_func == 'weight':
-            numView = len(inputs)
-            W = []
-            for v in range(numView):
-                self.vars['weight_'+str(v)] = weight_variable_glorot(1, 1, name="weight_"+str(v))
-                W.append(self.vars['weight_'+str(v)])
-            W = W/sum(W)
-            outputs = 0
-            for v in range(numView):
-                outputs = tf.pow(W[v], 5) * inputs[v]
-        elif self.fuze_func == 'max_pooling':
-            outputs = tf.reduce_max(inputs, axis=0)
-        elif self.fuze_func == 'concat':
-            outputs = tf.concat(inputs, axis=1)
-        elif self.fuze_func == 'MLP':
-            concat = tf.concat(inputs, axis=1)
-            concat1 = tf.layers.dense(concat, 32, activation=tf.nn.relu)
-            concat2 = tf.layers.dense(concat1, 32, activation=tf.nn.relu)
-            outputs = concat2
-        elif self.fuze_func == 'att':
-            num = len(inputs)
-            W = []
-            for n in range(num):
-                W.append(tf.exp(self.attention( "V"+str(n), inputs[n] )))
-            W = W/sum(W)
-            self.W = W
-            #W1 = tf.exp(self.attention( "V"+'0', inputs[0] ))
-
-            #W2 = tf.exp(self.attention( "V"+'1', inputs[1] ))
-            outputs = 0
-            for n in range(num):
-                outputs += W[n] * inputs[n]
-            #w1 = W1/(W1+W2)
-            #w2 = W2/(W1+W2)
-
-            #outputs = w1 * inputs[0] + w2 * inputs[1]
-            #self.w1 = w1
-            #self.w2 = w2
-        elif self.fuze_func == 'sem_att':
-            gamma = 0.5
-            self.vars['p_weight'] = weight_variable_glorot(self.input_dim, 1, name="p_weight")
-            num = len(inputs)
-            W = []
-            with tf.variable_scope('p', reuse = tf.AUTO_REUSE):
-                for n in range(num):
-                    trans = tf.layers.dense(inputs[n], self.input_dim, activation = tf.nn.tanh, name='trans')
-                    wei = tf.matmul(trans, self.vars['p_weight'])
-                    wei = tf.reduce_mean(wei)
-                    W.append(wei)
-                soft_wei = tf.nn.softmax(W)
-            outputs = 0
-            self.W = soft_wei
-            for n in range(num):
-                outputs += tf.pow(soft_wei[n], gamma) * inputs[n]
-            
-            
-        elif self.fuze_func == 'multi_att':
-            out = []
-            heads = 4
-            for i in range(heads):
-                num = len(inputs)
-                W = []
-                for n in range(num):
-                    W.append(tf.exp(self.attention( "V"+str(i)+'_'+str(n), inputs[n] )))
-                W = W/sum(W)
-                self.W = W
-                output = 0
-                for n in range(num):
-                     output += W[n] * inputs[n]
-                out.append(output)
-            outputs = tf.concat(out, axis=1)
-        elif self.fuze_func == 'att2':
-            mean = tf.reduce_mean(inputs, axis=0)
-            with tf.variable_scope(self.name + '_vars'):
-                self.vars['att_weights'] = weight_variable_glorot(self.input_dim, self.input_dim, name="att_view")
-            num = len(inputs)
-            W = []
-            for n in range(num):
-                tmp = tf.matmul(inputs[n], self.vars['att_weights']) 
-                d = tf.exp(tf.matmul(tf.expand_dims(tmp, 1), tf.expand_dims(mean, 2)))
-                d = tf.reshape(d, [-1,1])
-                print('*******************d', d.shape)
-                W.append(d)
-            W = W/sum(W)
-            self.W = W
-            outputs = 0
-            for n in range(num):
-                outputs += W[n] * inputs[n]
-            self.W = W
-        elif self.fuze_func == 'MVE':
-            numView = len(inputs)
-            weights = []
-            for v in range(numView):
-                self.vars['weight_'+str(v)] = weight_variable_glorot(numView * self.input_dim, 1, name="weight_"+str(v))
-                con_vec = tf.concat(inputs, axis=1)
-                weight = tf.matmul(con_vec, self.vars['weight_'+str(v)])
-                weights.append(weight)
-            concat_weight = tf.concat(weights, axis=1)
-            softmax_weight = tf.nn.softmax(concat_weight)
-            self.W = softmax_weight
-            #softmax_weight = tf.pow(softmax_weight, 2)
-            outputs = 0
-            for v in range(numView):
-                outputs += tf.reshape(softmax_weight[:,v], [-1, 1]) * inputs[v]
-        elif self.fuze_func == 'DIME':
-            numView = len(inputs)
-            fuze_layer = 0
-            for v in range(numView):
-                self.vars['MLP_weights_'+str(v)] = tf.get_variable(name="MLP_weights_"+str(v), shape=[self.input_dim, self.input_dim])
-                self.vars['MLP_bias_'+str(v)] = tf.get_variable(name="MLP_bias_"+str(v), shape=[self.input_dim])
-                fuze_layer += tf.matmul(inputs[v], self.vars['MLP_weights_'+str(v)]) + self.vars['MLP_bias_'+str(v)]
-            outputs= tf.nn.sigmoid(fuze_layer)
-      
-        return outputs
-
-    def attention(self, name, input_vec):
-        att_w1 = tf.get_variable( name+"att_w1", shape=(self.input_dim, 64 ), initializer=tf.contrib.layers.xavier_initializer())
-        att_b1 = tf.get_variable( name+"att_b1", shape=[64], initializer=tf.contrib.layers.xavier_initializer())
-        att_w2 = tf.get_variable( name+"att_w2", shape=(64,1), initializer=tf.contrib.layers.xavier_initializer())
-        att_b2 = tf.get_variable( name+"att_b2", shape=[1], initializer=tf.contrib.layers.xavier_initializer())
-        net_1 = tf.nn.sigmoid( tf.matmul(input_vec, att_w1) + att_b1 )
-        net_2 = tf.nn.sigmoid( tf.matmul(net_1, att_w2) + att_b2 )
-        return net_2  
+ 
 
 class ClusteringLayer(Layer):
     """Clustering layer."""

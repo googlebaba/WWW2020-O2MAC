@@ -1,4 +1,4 @@
-from layers import GraphConvolution, GraphConvolutionSparse, InnerProductDecoder, InnerProductDecoderSingle, FuzeMultiEmbedding, ClusteringLayer
+from layers import GraphConvolution, GraphConvolutionSparse, InnerProductDecoder, ClusteringLayer
 import tensorflow as tf
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -61,47 +61,42 @@ class ARGA(Model):
     def _build(self):
 
         with tf.variable_scope('Encoder', reuse=None):
-            self.embeddings = []
-            for v in range(self.numView):
-                self.hidden1 = GraphConvolution(input_dim=self.num_features,
-                                                  output_dim=FLAGS.hidden1,
-                                                  adj=self.adjs[v],
-                                                
-                                                  act=tf.nn.relu,
-                                                  dropout=self.dropout,
-                                                  logging=self.logging,
-                                                  name='e_dense_1_'+str(v))(self.inputs)
-                                                  
-                self.noise = gaussian_noise_layer(self.hidden1, 0.1)
-                
-                embeddings = GraphConvolution(input_dim=FLAGS.hidden1,
-                                           output_dim=FLAGS.hidden2,
-                                           adj=self.adjs[v],
-                                           act=lambda x: x,
-                                           dropout=self.dropout,
-                                           logging=self.logging,
-                                           name='e_dense_2_'+str(v))(self.noise)
-                self.embeddings.append(embeddings)
-            print('embeddings', self.embeddings)
-            #Fuze layer
-
+            self.hidden1 = GraphConvolution(input_dim=self.num_features,
+                                              output_dim=FLAGS.hidden1,
+                                              adj=self.adjs[FLAGS.input_view],
+                                            
+                                              act=tf.nn.relu,
+                                              dropout=self.dropout,
+                                              logging=self.logging,
+                                              name='e_dense_1_'+str(FLAGS.input_view))(self.inputs)
+                                              
+            self.noise = gaussian_noise_layer(self.hidden1, 0.1)
+            
+            self.embeddings = GraphConvolution(input_dim=FLAGS.hidden1,
+                                       output_dim=FLAGS.hidden2,
+                                       adj=self.adjs[FLAGS.input_view],
+                                       act=lambda x: x,
+                                       dropout=self.dropout,
+                                       logging=self.logging,
+                                       name='e_dense_2_'+str(FLAGS.input_view))(self.noise)
 
         self.cluster_layer = ClusteringLayer(input_dim=FLAGS.hidden2, n_clusters=self.num_clusters, name='clustering')
-        self.cluster_layer_q = self.cluster_layer(self.embeddings[FLAGS.input_view])
+        self.cluster_layer_q = self.cluster_layer(self.embeddings)
 
-
+        '''
         self.reconstructions = []
         for v in range(self.numView):
-            view_reconstruction = InnerProductDecoder(input_dim=FLAGS.hidden2, name = 'e_weight_single_', v = v,
+            view_reconstruction = MP(input_dim=FLAGS.hidden2, v = v,
                                           act=lambda x: x,
-                                          logging=self.logging)(self.embeddings[v])
-            self.reconstructions.append(view_reconstruction)
+                                          logging=self.logging)(embeddings)
+            self.reconstructions_fuze.append(view_reconstruction)
+        '''
 
         self.reconstructions_fuze = []
         for v in range(self.numView):
             view_reconstruction = InnerProductDecoder(input_dim=FLAGS.hidden2, name = 'e_weight_multi_', v = v,
                                           act=lambda x: x,
-                                          logging=self.logging)(self.embeddings[FLAGS.input_view])
+                                          logging=self.logging)(self.embeddings)
             self.reconstructions_fuze.append(view_reconstruction)
         # feature reconstruct
 

@@ -9,7 +9,7 @@ import os
 import numpy as np
 #os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 #os.environ['CUDA_VISIBLE_DEVICES'] = 1
-os.environ['CUDA_VISIBLE_DEVICES'] = "0"
+os.environ['CUDA_VISIBLE_DEVICES'] = "0,1,2"
 import tensorflow as tf
 from metrics import clustering_metrics
 from constructor import get_placeholder, get_model, compute_q, format_data, get_optimizer, warm_update, warm_update_test, update, update_test, update_kl
@@ -52,9 +52,8 @@ class Clustering_Runner():
         print("Clustering on dataset: %s, model: %s, number of iteration: %3d" % (settings['data_name'], settings['model'], settings['iterations']))
 
         self.data_name = settings['data_name']
-        self.warm_iteration = 0
         self.iterations = 50
-        self.kl_iterations = 30
+        self.kl_iterations = 0
         self.model = settings['model']
         self.n_clusters = settings['clustering_num']
         self.tol = 0.001
@@ -80,41 +79,6 @@ class Clustering_Runner():
         
         pos_weights = feas['pos_weights']
         fea_pos_weights = feas['fea_pos_weights']
-        for epoch in range(self.warm_iteration):
-            reconstruct_loss = warm_update(ae_model, opt, sess, feas['numView'], feas['adjs'], feas['adjs_label'], feas['features'], placeholders, pos_weights, fea_pos_weights, feas['norms'], attn_drop=0., ffd_drop=0.)
-            print('reconstruct_loss', reconstruct_loss)
-            if (epoch+1) == 50:
-                emb = warm_update_test(ae_model, opt, sess, feas['adjs'], feas['adjs_label'], feas['features'], placeholders, pos_weights = feas['pos_weights'], fea_pos_weights=fea_pos_weights, norm = feas['norms'], attn_drop=0, ffd_drop=0)
-                avg_emb = (emb[0] + emb[1]) /2
-
-                kmeans = KMeans(n_clusters=self.n_clusters).fit(emb[0])
-                print("Epoch:", '%04d' % (epoch + 1))
-                predict_labels0 = kmeans.predict(emb[0])
-                label_num = count_num(predict_labels0)
-
-                cm = clustering_metrics(label_mask(feas['true_labels']), predict_labels0)
-                acc, f1_macro, precision_macro, nmi, adjscore,_ = cm.evaluationClusterModelFromLabel()
-                #enc = preprocessing.OneHotEncoder()
-                #onehot_predict0 = enc.fit_transform(predict_labels0.reshape(-1, 1))
-                #Q = eng.modul(adjs0, onehot_predict)
-                #print('view0 Q', Q)
-                
-                kmeans = KMeans(n_clusters=self.n_clusters).fit(emb[1])
-                print("Epoch:", '%04d' % (epoch + 1))
-                predict_labels1 = kmeans.predict(emb[1])
-                label_num = count_num(predict_labels1)
-
-                cm = clustering_metrics(label_mask(feas['true_labels']), predict_labels1)
-                acc, f1_macro, precision_macro, nmi, adjscore,_ = cm.evaluationClusterModelFromLabel()
-                #onehot_predict1 = enc.fit_transform(predict_labels1.reshape(-1, 1))
-
-                #Q = eng.modul(adjs1, onehot_predict)
-                #print('view1 Q', Q)
-
-                #scio.savemat('acm_modurity.mat', {'adj0':feas['adjs_label'][0],'onehot_predict0':onehot_predict0, 'adj1':feas['adjs_label'][1],'onehot_predict1':onehot_predict1})
-                NMIs.append(nmi)
-        print('NMIs', NMIs) 
-        print('warm up done!')
 
         for epoch in range(self.iterations):
             reconstruct_loss  = update(ae_model, opt, sess, feas['adjs'], feas['adjs_label'], feas['features'], placeholders, pos_weights, fea_pos_weights, feas['norms'], attn_drop=0., ffd_drop=0.)
@@ -123,9 +87,9 @@ class Clustering_Runner():
           
             if (epoch+1) % 10 == 0:
                 emb_ind = update_test(ae_model, opt, sess, feas['adjs'], feas['adjs_label'], feas['features'], placeholders,  pos_weights = pos_weights, fea_pos_weights = fea_pos_weights, norm = feas['norms'], attn_drop=0, ffd_drop=0)
-                kmeans = KMeans(n_clusters=self.n_clusters).fit(emb_ind[FLAGS.input_view])
+                kmeans = KMeans(n_clusters=self.n_clusters).fit(emb_ind)
                 print("PAP Epoch:", '%04d' % (epoch + 1))
-                predict_labels = kmeans.predict(emb_ind[FLAGS.input_view])
+                predict_labels = kmeans.predict(emb_ind)
                 #print('emb1', emb_ind[1])
                 label_num = count_num(predict_labels)
                 print('view1 label_num:', label_num)
@@ -133,7 +97,7 @@ class Clustering_Runner():
                 acc, f1_macro, precision_macro, nmi, adjscore,_ = cm.evaluationClusterModelFromLabel()
                 NMIs.append(nmi)
                 loss.append(reconstruct_loss)
-        kmeans = KMeans(n_clusters=self.n_clusters).fit(emb_ind[FLAGS.input_view])
+        kmeans = KMeans(n_clusters=self.n_clusters).fit(emb_ind)
         y_pred_last = kmeans.labels_
         cm = clustering_metrics(label_mask(feas['true_labels']), y_pred_last)
         acc, f1_macro, precision_macro, nmi, adjscore, idx= cm.evaluationClusterModelFromLabel()
@@ -145,8 +109,8 @@ class Clustering_Runner():
         for epoch in range(self.kl_iterations):
             emb, kl_loss = update_kl(ae_model, opt, sess, feas['adjs'], feas['adjs_label'], feas['features'], p, placeholders, pos_weights, fea_pos_weights, feas['norms'], attn_drop=0., ffd_drop=0., idx=idx, label = label_mask(feas['true_labels']))
             if epoch%10 == 0:
-                kmeans = KMeans(n_clusters=self.n_clusters).fit(emb[FLAGS.input_view])
-                predict_labels = kmeans.predict(emb[FLAGS.input_view])
+                kmeans = KMeans(n_clusters=self.n_clusters).fit(emb)
+                predict_labels = kmeans.predict(emb)
                 cm = clustering_metrics(label_mask(feas['true_labels']), predict_labels)
                 acc, f1_macro, precision_macro, nmi, adjscore, _ = cm.evaluationClusterModelFromLabel()
                 NMIs.append(nmi)
@@ -159,8 +123,8 @@ class Clustering_Runner():
                 y_pred_last = y_pred
                 print('delta_label', delta_label)
                 print("Epoch:", '%04d' % (epoch + 1))
-                kmeans = KMeans(n_clusters=self.n_clusters).fit(emb[FLAGS.input_view])
-                predict_labels = kmeans.predict(emb[FLAGS.input_view])
+                kmeans = KMeans(n_clusters=self.n_clusters).fit(emb)
+                predict_labels = kmeans.predict(emb)
                 cm = clustering_metrics(label_mask(feas['true_labels']), predict_labels)
                 acc, f1_macro, precision_macro, nmi, adjscore, _ = cm.evaluationClusterModelFromLabel()
                 if epoch > 0 and delta_label < self.tol:
@@ -168,7 +132,6 @@ class Clustering_Runner():
                     break        
         print('NMI', NMIs)
         print('loss', loss)
-        save_embed(emb[FLAGS.input_view], 'emb_10.txt')
         return acc, f1_macro, precision_macro, nmi, adjscore
         
 if __name__ == '__main__':

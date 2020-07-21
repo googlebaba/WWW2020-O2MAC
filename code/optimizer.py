@@ -4,12 +4,10 @@ FLAGS = flags.FLAGS
 
 
 class OptimizerAE(object):
-    def __init__(self, model, preds_fuze, preds, p, labels,  numView,\
+    def __init__(self, model, preds_fuze, p, labels,  numView,\
          pos_weights, fea_pos_weights, norm):
     #labels 为adj_origin
-        preds_sub = preds
         labels_sub = labels
-        embed = model.embeddings
 
         self.cost = 0
         self.cost_list = []
@@ -20,8 +18,6 @@ class OptimizerAE(object):
             self.l2_loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
         for v in range(numView):
             self.cost += norm[v] * tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(logits=tf.reshape(preds_fuze[v], [-1]), targets=tf.reshape(labels_sub[v], [-1]), pos_weight=pos_weights[v]))
-            cost = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(logits=tf.reshape(preds_sub[v], [-1]), targets=tf.reshape(labels_sub[v], [-1]), pos_weight=pos_weights[v]))
-            self.cost_list.append(cost)
         self.optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate, 
                                            beta1=0.9, name='adam')  # Adam Optimizer
         self.cost = self.cost + self.l2_loss
@@ -30,10 +26,6 @@ class OptimizerAE(object):
         self.cost_kl = self.cost + FLAGS.kl_decay* kl_loss
      
         self.opt_op = self.optimizer.minimize(self.cost)
-        self.opt_op_list = []
-        for v in range(numView):
-            opt_op1 = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate).minimize(self.cost_list[v])
-            self.opt_op_list.append(opt_op1)
 
         self.opt_op_kl = self.optimizer.minimize(self.cost_kl)
                

@@ -17,7 +17,7 @@ class OptimizerAE(object):
         for var in all_variables:
             self.l2_loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
         for v in range(numView):
-            self.cost += norm[v] * tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(logits=tf.reshape(preds_fuze[v], [-1]), targets=tf.reshape(labels_sub[v], [-1]), pos_weight=pos_weights[v]))
+            self.cost += tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(logits=tf.reshape(preds_fuze[v], [-1]), targets=tf.reshape(labels_sub[v], [-1]), pos_weight=pos_weights[v]))
         self.optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate, 
                                            beta1=0.9, name='adam')  # Adam Optimizer
         self.cost = self.cost + self.l2_loss

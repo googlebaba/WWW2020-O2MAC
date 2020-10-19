@@ -15,7 +15,7 @@ Preprocessed DBLP can be found in: https://pan.baidu.com/s/1Qr2e97MofXsBhUvQqgJq
 
 Preprocessed IMDB can be found in: https://pan.baidu.com/s/199LoAr5WmL3wgx66j-qwaw password:qkec
 
-
+Google dirve: https://drive.google.com/file/d/1uF64x8IgiqQMUeepRDOmY6KSkWKtfGjz/view?usp=sharing
 # Requirements
 pip -r requirements.txt
 # Running the model
